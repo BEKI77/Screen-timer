@@ -1,0 +1,108 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:logger/web.dart';
+import 'running_apps_screen.dart';
+import 'analytics_screen.dart';
+import 'settings_screen.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  static final Logger _logger = Logger();
+  static const platform = MethodChannel('com.yourapp/usage');
+  late List<Widget> _pages;
+
+  int _selectedIndex = 0;
+
+  Future<bool> checkUsageAccess() async {
+    try {
+      final bool granted = await platform.invokeMethod('hasUsageAccess');
+      return granted;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<void> openUsageSettings() async {
+    try {
+      await platform.invokeMethod('openUsageAccess');
+    } on PlatformException catch (e) {
+      _logger.e("Failed to open usage settings: ${e.message}");
+    }
+  }
+
+  List<Map<String, dynamic>> runningApps = [];
+
+  Future<void> fetchRunningApps() async {
+    try {
+      final List<dynamic> apps = await platform.invokeMethod('getRunningApps');
+      setState(() {
+        runningApps =
+            apps.map<Map<String, dynamic>>((item) {
+              return Map<String, dynamic>.from(item as Map);
+            }).toList();
+
+        _pages = [
+          RunningAppsScreen(appUsageData: runningApps),
+          AnalyticsScreen(appUsageData: runningApps),
+          SettingsScreen(),
+        ];
+      });
+    } on PlatformException catch (e) {
+      _logger.e("Error getting apps: ${e.message}");
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [];
+    checkUsageAccess().then((granted) {
+      if (!granted) {
+        openUsageSettings();
+      }
+      Future.delayed(const Duration(seconds: 3), () async {
+        await fetchRunningApps();
+      });
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_pages.isEmpty || _selectedIndex >= _pages.length) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return Scaffold(
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.tealAccent,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.apps), label: 'Apps'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: 'Analytics',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+      ),
+    );
+  }
+}
