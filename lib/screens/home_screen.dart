@@ -89,10 +89,13 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         backgroundColor: Colors.black,
-        selectedItemColor: Colors.tealAccent,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: const Color.fromARGB(244, 53, 180, 151),
+        unselectedItemColor: const Color.fromARGB(239, 134, 134, 134),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.apps), label: 'Apps'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.apps_rounded),
+            label: 'Running Apps',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Analytics',

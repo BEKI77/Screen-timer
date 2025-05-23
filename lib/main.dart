@@ -14,7 +14,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Screen Timer',
-      theme: ThemeData.dark(),
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: Colors.black,
+        scaffoldBackgroundColor: const Color.fromARGB(255, 12, 13, 14),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.tealAccent,
+          brightness: Brightness.dark,
+          primary: Colors.tealAccent,
+          onSurface: Colors.white,
+        ),
+      ),
       debugShowCheckedModeBanner: false,
       home: const HomeScreen(),
     );
