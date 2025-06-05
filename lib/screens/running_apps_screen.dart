@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:logger/web.dart';
+import 'package:screen_timer/screens/app_usage_detail_screen.dart';
 
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -99,6 +100,18 @@ class _RunningAppsScreenState extends State<RunningAppsScreen> {
                               color: const Color.fromARGB(244, 53, 180, 151),
                               onPressed: () => _showTimeLimitDialog(app),
                             ),
+                            onTap:
+                                () => {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => AppUsageDetailScreen(
+                                            appName: app['appName'],
+                                          ),
+                                    ),
+                                  ),
+                                },
                           ),
                           Padding(
                             padding: const EdgeInsets.only(left: 56, right: 40),

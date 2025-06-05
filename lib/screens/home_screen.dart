@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/web.dart';
+import 'package:screen_timer/screens/screen_time_dashboard.dart';
 import 'running_apps_screen.dart';
 import 'analytics_screen.dart';
-import 'settings_screen.dart';
+// import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,9 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
             }).toList();
 
         _pages = [
+          ScreenTimeDashboard(),
           RunningAppsScreen(appUsageData: runningApps),
           AnalyticsScreen(appUsageData: runningApps),
-          SettingsScreen(),
         ];
       });
     } on PlatformException catch (e) {
@@ -93,16 +94,16 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: const Color.fromARGB(239, 134, 134, 134),
         items: const [
           BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.apps_rounded),
             label: 'Running Apps',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Analytics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
           ),
         ],
       ),

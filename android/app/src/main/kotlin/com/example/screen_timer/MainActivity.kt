@@ -4,18 +4,16 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.os.Build
 import android.provider.Settings
-import android.util.Base64
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 data class AppUsageInfo(
         val packageName: String,
@@ -47,6 +45,12 @@ class MainActivity : FlutterActivity() {
                 "hasUsageAccess" -> {
                     result.success(isUsageAccessGranted())
                 }
+                "getMonthlyUsage" -> {
+                    val pkgName =
+                            call.argument<String>("packageName") ?: return@setMethodCallHandler
+                    val resultMap = getMonthlyAppUsage(pkgName)
+                    result.success(resultMap)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -72,14 +76,6 @@ class MainActivity : FlutterActivity() {
                     if ((appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0) {
                         continue
                     }
-
-                    val iconDrawable = pm.getApplicationIcon(appInfo)
-
-                    // Convert icon to Base64
-                    val bitmap = drawableToBitmap(iconDrawable)
-                    val stream = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                    iconBase64 = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
                 } catch (e: Exception) {
                     Log.d("MainActivity", "App not found: ${usageStats.packageName}")
                 }
@@ -119,17 +115,32 @@ class MainActivity : FlutterActivity() {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    fun drawableToBitmap(drawable: Drawable): Bitmap {
-        return if (drawable is BitmapDrawable) {
-            drawable.bitmap
-        } else {
-            val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 100
-            val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 100
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap
+    private fun getMonthlyAppUsage(packageName: String): Map<String, Long> {
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val calendar = Calendar.getInstance()
+        val endTime = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_MONTH, -30)
+        val startTime = calendar.timeInMillis
+
+        val usageStatsList =
+                usageStatsManager.queryUsageStats(
+                        UsageStatsManager.INTERVAL_DAILY,
+                        startTime,
+                        endTime
+                )
+
+        val usageMap = mutableMapOf<String, Long>() // "yyyy-MM-dd" -> totalTimeInForeground
+
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        for (usageStats in usageStatsList) {
+            if (usageStats.packageName == packageName) {
+                val date = dateFormat.format(Date(usageStats.firstTimeStamp))
+                val currentTotal = usageMap.getOrDefault(date, 0L)
+                usageMap[date] = currentTotal + usageStats.totalTimeInForeground
+            }
         }
+
+        return usageMap
     }
 }
