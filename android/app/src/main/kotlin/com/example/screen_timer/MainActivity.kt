@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
@@ -67,18 +68,51 @@ class MainActivity : FlutterActivity() {
         if (appList != null) {
             val sorted = appList.sortedByDescending { it.lastTimeUsed }
             for (usageStats in sorted) {
-                var appName = usageStats.packageName
+                var appName: String?
                 var iconBase64: String? = null
 
                 try {
-                    val appInfo = pm.getApplicationInfo(usageStats.packageName, 0)
-
+                    val appInfo =
+                            try {
+                                pm.getApplicationInfo(usageStats.packageName, 0)
+                            } catch (e: Exception) {
+                                // Try with MATCH_UNINSTALLED_PACKAGES for API 24+
+                                if (android.os.Build.VERSION.SDK_INT >=
+                                                android.os.Build.VERSION_CODES.N
+                                ) {
+                                    pm.getApplicationInfo(
+                                            usageStats.packageName,
+                                            PackageManager.MATCH_UNINSTALLED_PACKAGES
+                                    )
+                                } else {
+                                    throw e
+                                }
+                            }
                     if ((appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0) {
                         continue
                     }
+                    appName = pm.getApplicationLabel(appInfo).toString()
                 } catch (e: Exception) {
-                    Log.d("MainActivity", "App not found: ${usageStats.packageName}")
+                    // Fallback: Try getting label from PackageInfo
+                    try {
+                        val pkgInfo = pm.getPackageInfo(usageStats.packageName, 0)
+                        appName = pm.getApplicationLabel(pkgInfo.applicationInfo!!).toString()
+                    } catch (ex: Exception) {
+                        Log.d(
+                                "MainActivity",
+                                "App not found: ${usageStats.packageName}, error: ${ex.message}"
+                        )
+                        // Fallback: Extract a name from the package name
+                        val parts = usageStats.packageName.split(".")
+                        appName =
+                                parts.lastOrNull()?.replaceFirstChar { it.uppercaseChar() }
+                                        ?: usageStats.packageName
+                    }
                 }
+                if (appName.isNullOrEmpty()) {
+                    continue
+                }
+                Log.d("appName", "Processing app: $appName")
 
                 result.add(
                         mapOf(
