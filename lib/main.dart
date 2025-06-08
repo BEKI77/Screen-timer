@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'services/usage_monitor.dart';
 
 void main() async {
+  // Ensures all Flutter bindings are initialized before async calls
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
   await dotenv.load(fileName: '.env.local');
+
+  // Initialize notifications and monitoring
+  UsageMonitor.instance.initNotifications();
+  UsageMonitor.instance.startMonitoring();
+
   runApp(const MyApp());
 }
 
