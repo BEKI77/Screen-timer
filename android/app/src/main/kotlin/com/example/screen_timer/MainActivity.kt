@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -51,6 +50,10 @@ class MainActivity : FlutterActivity() {
                             call.argument<String>("packageName") ?: return@setMethodCallHandler
                     val resultMap = getMonthlyAppUsage(pkgName)
                     result.success(resultMap)
+                }
+                "getWeeklyUsage" -> {
+                    val usage = getWeeklyUsage()
+                    result.success(usage)
                 }
                 else -> result.notImplemented()
             }
@@ -98,10 +101,6 @@ class MainActivity : FlutterActivity() {
                         val pkgInfo = pm.getPackageInfo(usageStats.packageName, 0)
                         appName = pm.getApplicationLabel(pkgInfo.applicationInfo!!).toString()
                     } catch (ex: Exception) {
-                        Log.d(
-                                "MainActivity",
-                                "App not found: ${usageStats.packageName}, error: ${ex.message}"
-                        )
                         // Fallback: Extract a name from the package name
                         val parts = usageStats.packageName.split(".")
                         appName =
@@ -112,7 +111,6 @@ class MainActivity : FlutterActivity() {
                 if (appName.isNullOrEmpty()) {
                     continue
                 }
-                Log.d("appName", "Processing app: $appName")
 
                 result.add(
                         mapOf(
@@ -163,7 +161,7 @@ class MainActivity : FlutterActivity() {
                         endTime
                 )
 
-        val usageMap = mutableMapOf<String, Long>() // "yyyy-MM-dd" -> totalTimeInForeground
+        val usageMap = mutableMapOf<String, Long>() // "yyyy-MM-dd" -> totalTimeIFnForeground
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
@@ -176,5 +174,43 @@ class MainActivity : FlutterActivity() {
         }
 
         return usageMap
+    }
+
+    private fun getWeeklyUsage(): Map<String, List<Long>> {
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val calendar = Calendar.getInstance()
+        val endTime = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_MONTH, -6)
+        val startTime = calendar.timeInMillis
+
+        val usageStatsList =
+                usageStatsManager.queryUsageStats(
+                        UsageStatsManager.INTERVAL_DAILY,
+                        startTime,
+                        endTime
+                )
+
+        val usageMap = mutableMapOf<String, MutableMap<String, Long>>() // date -> package -> usage
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        for (usageStats in usageStatsList) {
+            val pkg = usageStats.packageName
+            val date = dateFormat.format(Date(usageStats.firstTimeStamp))
+
+            if (!usageMap.containsKey(date)) {
+                usageMap[date] = mutableMapOf()
+            }
+
+            val currentUsage = usageMap[date]?.getOrDefault(pkg, 0L) ?: 0L
+            usageMap[date]?.set(pkg, currentUsage + usageStats.totalTimeInForeground)
+        }
+
+        // Convert to format: Map<String, List<Long>>
+        val resultMap = mutableMapOf<String, List<Long>>()
+        for ((date, appUsages) in usageMap) {
+            resultMap[date] = appUsages.values.toList()
+        }
+
+        return resultMap
     }
 }

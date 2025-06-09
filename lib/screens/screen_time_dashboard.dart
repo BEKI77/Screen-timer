@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/usage_monitor.dart';
 // import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -13,12 +14,80 @@ final List<Color> hourlyGradientColors = [
   Color(0xFF00ACC1), // darkest
 ];
 
-class ScreenTimeDashboard extends StatelessWidget {
+class ScreenTimeDashboard extends StatefulWidget {
   const ScreenTimeDashboard({super.key});
   @override
+  // ignore: library_private_types_in_public_api
+  _ScreenTimeDashboardState createState() => _ScreenTimeDashboardState();
+}
+
+class _ScreenTimeDashboardState extends State<ScreenTimeDashboard> {
+  Map<String, int> _todayUsage = {};
+  List<double> _weeklyTotals = List.filled(7, 0);
+  final int _currentDayIndex = DateTime.now().weekday - 1;
+
+  int totalMinutes = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUsage();
+    fetchWeeklyUsage();
+  }
+
+  Future<void> fetchUsage() async {
+    final usage = await UsageMonitor.instance.getTodayUsage();
+    int total = usage.values.fold(0, (a, b) => a + b);
+    setState(() {
+      _todayUsage = usage;
+      totalMinutes = total;
+    });
+  }
+
+  void fetchWeeklyUsage() async {
+    final weeklyUsage =
+        await UsageMonitor.instance.getWeeklyUsage(); // your platform method
+    final formatter = DateFormat('yyyy-MM-dd');
+    final now = DateTime.now();
+    final List<double> totals = List.filled(7, 0);
+
+    for (int i = 0; i < 7; i++) {
+      final date = now.subtract(Duration(days: 6 - i));
+      final key = formatter.format(date);
+      if (weeklyUsage.containsKey(key)) {
+        totals[i] =
+            weeklyUsage[key]!.fold(0, (sum, mins) => sum + mins).toDouble() /
+            60.0; // to hours
+      }
+    }
+
+    setState(() {
+      _weeklyTotals = totals;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<double> segments = [0.5, 0.3, 0.2];
-    final List<Color> segmentColors = [Colors.pink, Colors.blue, Colors.green];
+    List<String> topApps = _todayUsage.keys.take(4).toList();
+
+    while (topApps.length < 4) {
+      topApps.add('0');
+    }
+
+    List<double> segments =
+        totalMinutes == 0
+            ? List.filled(4, 0.0)
+            : topApps
+                .map((app) => (_todayUsage[app] ?? 0) / totalMinutes)
+                .toList();
+
+    List<Color> colors = [
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.lightGreen,
+    ];
+    // final List<Color> segmentColors = [Colors.pink, Colors.blue, Colors.green];
     final time = DateTime.now();
     return Scaffold(
       appBar: AppBar(
@@ -145,38 +214,24 @@ class ScreenTimeDashboard extends StatelessWidget {
                   ),
                   gridData: FlGridData(show: false),
                   barGroups:
-                      [5.5, 6.0, 5.0, 7.8, 6.2, 4.5, 4.8].asMap().entries.map((
-                        entry,
-                      ) {
+                      _weeklyTotals.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final value = entry.value;
                         return BarChartGroupData(
-                          x: entry.key,
+                          x: index,
                           barRods: [
                             BarChartRodData(
-                              toY: entry.value,
-                              color:
-                                  entry.key == 3
-                                      ? Colors.blue
-                                      : Colors.grey[600],
+                              toY: value,
                               width: 16,
                               gradient: LinearGradient(
                                 colors:
-                                    entry.key == 3
+                                    index == _currentDayIndex
                                         ? [
-                                          const Color.fromARGB(
-                                            80,
-                                            33,
-                                            149,
-                                            243,
-                                          ),
+                                          Color.fromARGB(80, 33, 149, 243),
                                           Colors.lightBlueAccent,
                                         ]
                                         : [
-                                          const Color.fromARGB(
-                                            57,
-                                            158,
-                                            158,
-                                            158,
-                                          ),
+                                          Color.fromARGB(57, 158, 158, 158),
                                           Colors.grey[600]!,
                                         ],
                                 begin: Alignment.bottomCenter,
@@ -233,10 +288,7 @@ class ScreenTimeDashboard extends StatelessWidget {
               children: [
                 CustomPaint(
                   size: Size(100, 100),
-                  painter: MultiColorCircularProgressPainter(
-                    segments,
-                    segmentColors,
-                  ),
+                  painter: MultiColorCircularProgressPainter(segments, colors),
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -257,9 +309,13 @@ class ScreenTimeDashboard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    usageRow('3h 32m', Colors.pink),
-                    usageRow('2h 02m', Colors.blue),
-                    usageRow('18m', Colors.green),
+                    usageRow('${_todayUsage[topApps[0]] ?? 0}m', Colors.red),
+                    usageRow('${_todayUsage[topApps[1]] ?? 0}m', Colors.blue),
+                    usageRow('${_todayUsage[topApps[2]] ?? 0}m', Colors.green),
+                    usageRow(
+                      '${_todayUsage[topApps[3]] ?? 0}m',
+                      Colors.lightGreen,
+                    ),
                   ],
                 ),
               ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'package:permission_handler/permission_handler.dart';
 import 'services/usage_monitor.dart';
 
 void main() async {
@@ -9,6 +11,8 @@ void main() async {
 
   // Load environment variables
   await dotenv.load(fileName: '.env.local');
+
+  await requestNotificationPermission();
 
   // Initialize notifications and monitoring
   UsageMonitor.instance.initNotifications();
@@ -38,5 +42,11 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       home: const HomeScreen(),
     );
+  }
+}
+
+Future<void> requestNotificationPermission() async {
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
   }
 }

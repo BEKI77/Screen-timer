@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:logger/web.dart';
 import 'package:screen_timer/screens/app_usage_detail_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -141,8 +140,6 @@ Future<void> _setAppLimit(String packageName, int minutes) async {
 }
 
 Future<int?> getAppLimit(String packageName) async {
-  final Logger logger = Logger();
   final prefs = await SharedPreferences.getInstance();
-  logger.i(prefs.getInt('limit_$packageName'));
   return prefs.getInt('limit_$packageName');
 }

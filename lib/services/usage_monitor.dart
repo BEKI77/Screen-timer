@@ -38,7 +38,6 @@ class UsageMonitor {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
     final limits = <String, int>{};
-
     for (final key in keys) {
       if (key.startsWith('limit_')) {
         final pkg = key.substring(6); // remove 'limit_' prefix
@@ -48,31 +47,34 @@ class UsageMonitor {
         }
       }
     }
-
     return limits;
   }
 
   /// Starts periodic monitoring of app usage
   void startMonitoring() {
-    _pollTimer?.cancel(); // Ensure only one timer is running
-    _pollTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
-      final limits = await _loadAllLimits(); // packageName -> limit
-      final recentApps = await _getRunningApps(); // from native
+    _checkUsage();
 
-      for (final app in recentApps) {
-        final pkg = app['packageName'];
-        final usageMs = app['usageTime'] as int;
-        final usageMin = (usageMs / 60000).round();
+    Timer.periodic(Duration(minutes: 5), (timer) async {
+      _checkUsage();
+    });
+  }
 
-        if (limits.containsKey(pkg)) {
-          final limitMin = limits[pkg]!;
-          if (usageMin >= limitMin) {
-            await _showUsageLimitNotification(app['appName']);
-            _logger.i('Notification shown for $pkg');
-          }
+  Future<void> _checkUsage() async {
+    final limits = await _loadAllLimits();
+    final recentApps = await _getRunningApps();
+
+    for (final app in recentApps) {
+      final pkg = app['appName'];
+      final usageMs = app['usageTime'] as int;
+      final usageMin = (usageMs / 60000).round();
+
+      if (limits.containsKey(pkg)) {
+        final limitMin = limits[pkg]!;
+        if (usageMin >= limitMin) {
+          await _showUsageLimitNotification(app['appName']);
         }
       }
-    });
+    }
   }
 
   /// Stops monitoring
@@ -94,6 +96,7 @@ class UsageMonitor {
 
   /// Shows a notification when usage limit is reached
   Future<void> _showUsageLimitNotification(String appName) async {
+    _logger.i(appName);
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'usage_channel',
@@ -113,5 +116,24 @@ class UsageMonitor {
       '$appName usage time exceeded the limit.',
       platformDetails,
     );
+  }
+
+  Future<Map<String, int>> getTodayUsage() async {
+    final apps = await _getRunningApps();
+    final Map<String, int> usageMap = {};
+    for (final app in apps) {
+      usageMap[app['appName']] = app['usageTime'] ~/ 1000 ~/ 60; // in minutes
+    }
+    return usageMap;
+  }
+
+  Future<Map<String, List<int>>> getWeeklyUsage() async {
+    final Map<dynamic, dynamic> usage = await _channel.invokeMethod(
+      'getWeeklyUsage',
+    );
+    return usage.map((key, value) {
+      List<int> list = List<int>.from(value);
+      return MapEntry(key as String, list);
+    });
   }
 }
