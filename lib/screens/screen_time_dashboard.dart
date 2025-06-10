@@ -68,27 +68,19 @@ class _ScreenTimeDashboardState extends State<ScreenTimeDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> topApps = _todayUsage.keys.take(4).toList();
-
-    while (topApps.length < 4) {
-      topApps.add('0');
-    }
+    List<String> topApps = _todayUsage.keys.take(3).toList();
 
     List<double> segments =
         totalMinutes == 0
-            ? List.filled(4, 0.0)
+            ? List.filled(3, 0.0)
             : topApps
                 .map((app) => (_todayUsage[app] ?? 0) / totalMinutes)
                 .toList();
 
-    List<Color> colors = [
-      Colors.red,
-      Colors.blue,
-      Colors.green,
-      Colors.lightGreen,
-    ];
-    // final List<Color> segmentColors = [Colors.pink, Colors.blue, Colors.green];
+    List<Color> colors = [Colors.pink, Colors.blue, Colors.green];
+
     final time = DateTime.now();
+
     return Scaffold(
       appBar: AppBar(
         leading: Icon(
@@ -250,21 +242,26 @@ class _ScreenTimeDashboardState extends State<ScreenTimeDashboard> {
 
             // Category Totals
             Row(
-              verticalDirection: VerticalDirection.down,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const [
-                _StatLabel(color: Colors.cyan, label: "Social", time: "5h 39m"),
-                _StatLabel(
-                  color: Colors.orange,
-                  label: "Utilities",
-                  time: "1h 21m",
-                ),
-                _StatLabel(
-                  color: Colors.amber,
-                  label: "Productivity",
-                  time: "53m",
-                ),
-              ],
+              children: List.generate(topApps.length, (i) {
+                final app = topApps[i];
+                final usage = _todayUsage[app] ?? 0;
+                final hours = usage ~/ 60;
+                final minutes = usage % 60;
+                final timeStr =
+                    hours > 0 ? "${hours}h ${minutes}m" : "${minutes}m";
+                final colorList = [
+                  Colors.cyan,
+                  Colors.orange,
+                  Colors.amber,
+                  Colors.purple,
+                ];
+                return _StatLabel(
+                  color: colorList[i % colorList.length],
+                  label: app.isNotEmpty ? app : "N/A",
+                  time: timeStr,
+                );
+              }),
             ),
 
             SizedBox(height: 40),
@@ -305,19 +302,6 @@ class _ScreenTimeDashboardState extends State<ScreenTimeDashboard> {
                     ),
                   ),
                 ),
-                SizedBox(width: 40),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    usageRow('${_todayUsage[topApps[0]] ?? 0}m', Colors.red),
-                    usageRow('${_todayUsage[topApps[1]] ?? 0}m', Colors.blue),
-                    usageRow('${_todayUsage[topApps[2]] ?? 0}m', Colors.green),
-                    usageRow(
-                      '${_todayUsage[topApps[3]] ?? 0}m',
-                      Colors.lightGreen,
-                    ),
-                  ],
-                ),
               ],
             ),
           ],
@@ -348,19 +332,6 @@ class _StatLabel extends StatelessWidget {
       ],
     );
   }
-}
-
-Widget usageRow(String time, Color color) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4.0),
-    child: Row(
-      children: [
-        Icon(Icons.circle, color: color, size: 12),
-        SizedBox(width: 8),
-        Text(time, style: TextStyle(color: Colors.white)),
-      ],
-    ),
-  );
 }
 
 class MultiColorCircularProgressPainter extends CustomPainter {

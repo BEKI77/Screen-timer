@@ -12,6 +12,7 @@
     <application
         android:label="screen_timer"
         android:name="${applicationName}"
+        android:theme="@style/LaunchTheme"
         android:icon="@mipmap/ic_launcher">
 
         <activity

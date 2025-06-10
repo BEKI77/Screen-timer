@@ -61,7 +61,7 @@ class UsageMonitor {
 
   Future<void> _checkUsage() async {
     final limits = await _loadAllLimits();
-    final recentApps = await _getRunningApps();
+    final recentApps = await getRunningApps();
 
     for (final app in recentApps) {
       final pkg = app['appName'];
@@ -84,10 +84,10 @@ class UsageMonitor {
   }
 
   /// Fetches running apps using platform channel
-  Future<List<dynamic>> _getRunningApps() async {
+  Future<List<dynamic>> getRunningApps() async {
     try {
       final List<dynamic> apps = await _channel.invokeMethod('getRunningApps');
-      return apps;
+      return apps.map((app) => Map<String, dynamic>.from(app as Map)).toList();
     } catch (e) {
       _logger.e('Error getting running apps: $e');
       return [];
@@ -119,7 +119,7 @@ class UsageMonitor {
   }
 
   Future<Map<String, int>> getTodayUsage() async {
-    final apps = await _getRunningApps();
+    final apps = await getRunningApps();
     final Map<String, int> usageMap = {};
     for (final app in apps) {
       usageMap[app['appName']] = app['usageTime'] ~/ 1000 ~/ 60; // in minutes
@@ -135,5 +135,70 @@ class UsageMonitor {
       List<int> list = List<int>.from(value);
       return MapEntry(key as String, list);
     });
+  }
+
+  Future<Map<DateTime, int>> getMonthlyUsage(String appName) async {
+    try {
+      final Map<dynamic, dynamic> result = await _channel.invokeMethod(
+        'getMonthlyUsage',
+        {'packageName': appName},
+      );
+      if (result.isEmpty) return {};
+
+      final values = result.values.cast<num>().toList();
+      final minUsage = values.reduce((a, b) => a < b ? a : b);
+      final maxUsage = values.reduce((a, b) => a > b ? a : b);
+
+      int mapToBucket(num value) {
+        if (maxUsage == minUsage) return 10;
+        final percent = (value - minUsage) / (maxUsage - minUsage);
+        if (percent < 0.2) return 10;
+        if (percent < 0.4) return 20;
+        if (percent < 0.6) return 30;
+        if (percent < 0.8) return 40;
+        return 50;
+      }
+
+      final parsed = <DateTime, int>{};
+      result.forEach((key, value) {
+        parsed[DateTime.parse(key)] = mapToBucket(value);
+      });
+      return parsed;
+    } on PlatformException catch (e) {
+      _logger.e("Error fetching monthly usage: ${e.message}");
+      return {};
+    }
+  }
+
+  /// Returns the first and last day of current month
+  Map<String, DateTime> getCurrentMonthRange() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = DateTime(now.year, now.month + 1, 0);
+    return {'start': start, 'end': end};
+  }
+
+  /// Returns a weekly summary (weekOfYear -> total)
+  Map<int, num> getWeeklySummary(Map<DateTime, int> usageMap) {
+    final weekMap = <int, num>{};
+
+    for (final entry in usageMap.entries) {
+      final weekOfYear = _getWeekOfYear(entry.key);
+      weekMap.update(
+        weekOfYear,
+        (value) => value + entry.value,
+        ifAbsent: () => entry.value,
+      );
+    }
+
+    return weekMap;
+  }
+
+  int _getWeekOfYear(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final daysOffset = firstDayOfYear.weekday - 1;
+    final firstMonday = firstDayOfYear.subtract(Duration(days: daysOffset));
+    final diff = date.difference(firstMonday).inDays;
+    return ((diff) / 7).floor() + 1;
   }
 }

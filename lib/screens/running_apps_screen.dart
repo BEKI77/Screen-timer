@@ -3,11 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:screen_timer/screens/app_usage_detail_screen.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:screen_timer/services/usage_monitor.dart';
 
 class RunningAppsScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> appUsageData;
-
-  const RunningAppsScreen({super.key, required this.appUsageData});
+  const RunningAppsScreen({super.key});
 
   @override
   State<RunningAppsScreen> createState() => _RunningAppsScreenState();
@@ -15,11 +14,20 @@ class RunningAppsScreen extends StatefulWidget {
 
 class _RunningAppsScreenState extends State<RunningAppsScreen> {
   List<Map<String, dynamic>> runningApps = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    runningApps = widget.appUsageData;
+    _fetchRunningApps();
+  }
+
+  Future<void> _fetchRunningApps() async {
+    final apps = await UsageMonitor.instance.getRunningApps(); // updated method
+    setState(() {
+      runningApps = List<Map<String, dynamic>>.from(apps);
+      _isLoading = false;
+    });
   }
 
   void _showTimeLimitDialog(Map<String, dynamic> app) async {
@@ -67,7 +75,7 @@ class _RunningAppsScreenState extends State<RunningAppsScreen> {
         surfaceTintColor: Colors.black87,
       ),
       body:
-          runningApps.isEmpty
+          _isLoading
               ? const Center(child: CircularProgressIndicator())
               : ListView.builder(
                 itemCount: runningApps.length,
@@ -105,7 +113,7 @@ class _RunningAppsScreenState extends State<RunningAppsScreen> {
                                     MaterialPageRoute(
                                       builder:
                                           (_) => AppUsageDetailScreen(
-                                            appName: app['appName'],
+                                            packageName: app['packageName'],
                                           ),
                                     ),
                                   ),

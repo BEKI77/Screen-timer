@@ -37,21 +37,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<Map<String, dynamic>> runningApps = [];
-
   Future<void> fetchRunningApps() async {
     try {
-      final List<dynamic> apps = await platform.invokeMethod('getRunningApps');
       setState(() {
-        runningApps =
-            apps.map<Map<String, dynamic>>((item) {
-              return Map<String, dynamic>.from(item as Map);
-            }).toList();
-
         _pages = [
           ScreenTimeDashboard(),
-          RunningAppsScreen(appUsageData: runningApps),
-          AnalyticsScreen(appUsageData: runningApps),
+          RunningAppsScreen(),
+          AnalyticsScreen(),
         ];
       });
     } on PlatformException catch (e) {
